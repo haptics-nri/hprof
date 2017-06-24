@@ -59,14 +59,14 @@ extern crate log;
 extern crate clock_ticks;
 
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::sync::Arc;
 
 thread_local!(static HPROF: Profiler = Profiler::new("root profiler"));
 
 /// A single tree of profile data.
 pub struct Profiler {
-    root: Rc<ProfileNode>,
-    current: RefCell<Rc<ProfileNode>>,
+    root: Arc<ProfileNode>,
+    current: RefCell<Arc<ProfileNode>>,
     enabled: Cell<bool>,
 }
 
@@ -85,7 +85,7 @@ macro_rules! early_leave {
 impl Profiler {
     /// Create a new profiler with the given name for the root node.
     pub fn new(name: &'static str) -> Profiler {
-        let root = Rc::new(ProfileNode::new(None, name));
+        let root = Arc::new(ProfileNode::new(None, name));
         root.call();
         Profiler { root: root.clone(), current: RefCell::new(root), enabled: Cell::new(true) }
     }
@@ -130,7 +130,7 @@ impl Profiler {
     ///
     /// This root will always be valid and reflect the current state of the `Profiler`.
     /// It is not advised to inspect the data between calls to `start_frame` and `end_frame`.
-    pub fn root(&self) -> Rc<ProfileNode> {
+    pub fn root(&self) -> Arc<ProfileNode> {
         self.root.clone()
     }
 
@@ -198,14 +198,14 @@ pub struct ProfileNode {
     /// Number of recursive calls made to this node since the first `call`.
     pub recursion: Cell<u32>,
     /// Parent in the profile tree.
-    pub parent: Option<Rc<ProfileNode>>,
+    pub parent: Option<Arc<ProfileNode>>,
     // TODO: replace this Vec with an intrusive list. Use containerof?
     /// Child nodes.
-    pub children: RefCell<Vec<Rc<ProfileNode>>>,
+    pub children: RefCell<Vec<Arc<ProfileNode>>>,
 }
 
 impl ProfileNode {
-    pub fn new(parent: Option<Rc<ProfileNode>>, name: &'static str) -> ProfileNode {
+    pub fn new(parent: Option<Arc<ProfileNode>>, name: &'static str) -> ProfileNode {
         ProfileNode {
             name: name,
             calls: Cell::new(0),
@@ -229,14 +229,14 @@ impl ProfileNode {
     }
 
     /// Create a child named `name`.
-    pub fn make_child(&self, me: Rc<ProfileNode>, name: &'static str) -> Rc<ProfileNode> {
+    pub fn make_child(&self, me: Arc<ProfileNode>, name: &'static str) -> Arc<ProfileNode> {
         let mut children = self.children.borrow_mut();
         for child in &*children {
             if child.name == name {
                 return child.clone()
             }
         }
-        let new = Rc::new(ProfileNode::new(Some(me), name));
+        let new = Arc::new(ProfileNode::new(Some(me), name));
         children.push(new.clone());
         new
     }
